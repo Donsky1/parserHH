@@ -1,0 +1,33 @@
+{% extends "loyout.html" %}
+{% block head %}
+{{ super() }}
+{% endblock head %}
+{% block top %}mb-5{% endblock top %}
+{% block content %}
+    {% if flag == 1 %}
+    <div class="row gx-0 justify-content-center" style="align: top">
+        <div class="alert alert-success" role="alert">
+          <h4 class="alert-heading">Отличная работа! Нам удалось спарсить данные</h4>
+          <p>Ваш запрос на поиск вакансии "{{vacancy}}" был успешно обработан. <br>
+              Файл {{vacancy}}.xlsx сформирован ниже. Вы его можете сейчас скачать.</p>
+          <hr>
+          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>
+        </div>
+    {% elif flag == 0 %}
+        <div class="alert alert-warning" role="alert">
+              <h4 class="alert-heading">В данном блоке в дальнейшем будет результат выполнения парсинга</h4>
+              <p>Процесс парсинга предельно прост. <br>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса, расположенную на главной странице.</p>
+              <hr>
+              <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
+            </div>
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+              <h4 class="alert-heading">Ошибка запроса</h4>
+              <p>Вы неверно указали запрос на гравной странице.<br>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса, расположенную на главной странице.</p>
+              <hr>
+              <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
+            </div>
+        {% endif %}
+{% endblock content %}
