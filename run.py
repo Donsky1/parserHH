@@ -7,12 +7,14 @@ import os
 app = Flask(__name__)
 
 
+# Главная страница
 @app.route('/')
 def index_page():
     name_page = 'Главная'
     return render_template('index.html', title=name_page)
 
 
+# Страница формы запроса
 @app.route('/form/', methods=['GET', 'POST'])
 def form_page():
     if request.method == 'GET':
@@ -31,11 +33,13 @@ def form_page():
             return render_template('result.html', flag=3)
 
 
+# Страница результата
 @app.route('/result/')
 def result_page():
     return render_template('result.html', flag=0)
 
 
+# Страница контактов
 @app.route('/contacts/')
 def contacts_page():
     return render_template('contacts.html')
