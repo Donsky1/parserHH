@@ -29,7 +29,7 @@
 <hr>
 <b>Добавлен сайт(beta) базирующийся на фреймворке Flask </b><br>
 
-![image](https://user-images.githubusercontent.com/63307876/161956221-32d35fe3-0641-4909-96e1-eb067da79c09.png)
+![image](https://user-images.githubusercontent.com/63307876/162290698-23dd9b5e-68af-4e8e-9f00-2b126c7ab850.png)
   
 Алгоритм работы на сайте:
   <li>Вводите вакансию </li>
