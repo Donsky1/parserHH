@@ -29,12 +29,12 @@
 <hr>
 <b>Добавлен сайт(beta) базирующийся на фреймворке Flask </b><br>
 
-![image](https://user-images.githubusercontent.com/63307876/162290698-23dd9b5e-68af-4e8e-9f00-2b126c7ab850.png)
+!![image](https://user-images.githubusercontent.com/63307876/162795613-eac66a7b-5088-48a2-a2e9-2a1c7ce7aca7.png)
   
 Алгоритм работы на сайте:
-  <li>Вводите вакансию </li>
+  <li>Вводите вакансию и выбираете из списка регион</li>
   <li>Нажимаете Парсинг вакансии</li>
   <li>Ожидаете, после того как процесс будет завершен страница перейдет к вкладке Результаты</li><br>
   
-  ![image](https://user-images.githubusercontent.com/63307876/161956817-1025262e-b6d2-4340-b6db-7137fc33642a.png)
+  ![image](https://user-images.githubusercontent.com/63307876/162795674-31e0a39f-ffa3-4766-9718-0fec844732b9.png)
 
