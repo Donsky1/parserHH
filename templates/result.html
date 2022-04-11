@@ -5,27 +5,56 @@
 {% block top %}mb-5{% endblock top %}
 {% block content %}
     {% if flag == 1 %}
-    <div class="row gx-0 justify-content-center" style="align: top">
-        <div class="alert alert-success" role="alert">
-          <h4 class="alert-heading">Отличная работа! Нам удалось спарсить данные</h4>
-          <p>Ваш запрос на поиск вакансии "{{vacancy}}" был успешно обработан. <br>
-              Файл {{vacancy}}.xlsx сформирован ниже. Вы его можете сейчас скачать.</p>
-          <hr>
-          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>
-        </div>
+    <table class="table table-dark table-striped">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Регион</th>
+          <th scope="col">Компания</th>
+          <th scope="col">Профессия</th>
+          <th scope="col">ЗП</th>
+          <th scope="col">ССылка</th>
+        </tr>
+      </thead>
+      {% for item in range(count_data) %}
+      <tbody>
+        <tr>
+          <th scope="row">{{item+1}}</th>
+          <td>{{data[item][4]}}</td>
+          <td>{{data[item][5]}}</td>
+          <td>{{data[item][1]}}</td>
+          <td>{{data[item][6]}}</td>
+          <td><a href="{{data[item][2]}}">link</a></td>
+        </tr>
+        {% endfor %}
+        <tr>
+          <th scope="row">...</th>
+            <td colspan="4">вы являетесь незарегистрированным пользователем, поэтому вывод информации ограничен... <a href="/login/">Зарегистрироваться.</a></td>
+          <td> ... </td>
+        </tr>
+      </tbody>
+    </table>
+<!--    <div class="row gx-0 justify-content-center" style="align: top">-->
+<!--        <div class="alert alert-success" role="alert">-->
+<!--          <h4 class="alert-heading">Отличная работа! Нам удалось спарсить данные</h4>-->
+<!--          <p>Ваш запрос на поиск вакансии был успешно обработан. <br>-->
+<!--              Файл {{vacancy}}.xlsx сформирован ниже. Вы его можете сейчас скачать.</p>-->
+<!--          <hr>-->
+<!--          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>-->
+<!--        </div>-->
     {% elif flag == 0 %}
         <div class="alert alert-warning" role="alert">
               <h4 class="alert-heading">В данном блоке в дальнейшем будет результат выполнения парсинга</h4>
               <p>Процесс парсинга предельно прост. <br>
-                  Вам необходимо ввести искомую вакансию в поле формы запроса, расположенную на главной странице.</p>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион, расположенную на главной странице.</p>
               <hr>
               <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
             </div>
     {% else %}
         <div class="alert alert-warning" role="alert">
               <h4 class="alert-heading">Ошибка запроса</h4>
-              <p>Вы неверно указали запрос на гравной странице.<br>
-                  Вам необходимо ввести искомую вакансию в поле формы запроса, расположенную на главной странице.</p>
+              <p>Вы неверно указали запрос на главной странице.<br>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион, расположенную на главной странице.</p>
               <hr>
               <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
             </div>

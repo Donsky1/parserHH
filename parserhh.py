@@ -1,217 +1,242 @@
 import requests
 import pandas as pd
 from tqdm import tqdm
-from collections import Counter, OrderedDict
+from collections import Counter
 import time
 import os
-
-# гиперпараметры
-WEB_API = "https://api.hh.ru/"
-AREAS = 'areas'
-VACANCIES = 'vacancies'
-ERROR_LOG = os.path.join('static', 'docs', 'error.txt')
+import sqlite3
 
 
-def set_search_options(search_text, region, only_with_salary=True, page=None, per_page=100):
-    """
-    функция задания параметров поиска на hh.ru
-    :param search_text: text Поисковый запрос : str
-    :param only_with_salary: True or False  Только с указанием ЗП: bool
-    :param region: id from area_list Регион размещения: int
-    :param page: Текущая страница : int
-    :param per_page: Кол-во вакансий к выдаче : int
-    :return: dict()
-    """
-    params = {
-        'text': f'{search_text}',
-        'only_with_salary': only_with_salary,
-        'area': f'{region}',
-        'page': page,
-        'per_page': per_page
-    }
-    return params
+# функция формирования БД регионы
+def get_regions_from_hh():
+    print(f'request: get  region from HH.ru')
+    con = sqlite3.connect('hh.sqlite')  # подключение к БД
+    cur = con.cursor()
+    area_list_response = requests.get("https://api.hh.ru/areas").json()
+    for area in area_list_response[0]['areas']:
+        cur.execute('INSERT INTO region (region_id, name) VALUES (?, ?)', (area['id'], area['name']))
+    con.commit()
 
 
-def parse_vacancy(search_request, with_salary=True):
-    # счетчики для логов
-    area_count = 0          ## подсчет кол-во регионов в которых была найдена вакансия
-    page_count = 0          ## подсчет обработанных страниц
-    vacancies_count = 0     ## подсчет кол-ва обработанных вакансий
-    error_count = 0         ## подсчет прозошедших ошибок
-    total_found = 0         ## сколько всего вакансий
-    total_salary = 0        ## тотал зп для расчета средней
-    total_list_skills = []  ## список всех требований к данному типу вакансий
+class Vacancy:
 
-    # словарь в который будет заноситься спарсенная инф.
-    # далее она будет преобразована в dataframe и сохр в формате xlsx
-    vacancies_dict = {
-        'Регион': [],
-        'Компания': [],
-        'ID компании': [],
-        'Название профессиии': [],
-        'ID профессии': [],
-        'ЗП': [],
-        'Тип занятости': [],
-        'Краткое описание требований': [],
-        'Ключевые слова': [],
-        'Полное описание': [],
-        'link': []
-    }
+    def __init__(self, name, region, with_salary=True):
+        self.__name = name
+        self.__region = region
+        self.__ERROR_LOG = os.path.join('static', 'logs', f'{self.__name}Error.txt')
+        self.__WEB_API = "https://api.hh.ru/"
+        self.__AREAS = 'areas'
+        self.__VACANCIES = 'vacancies'
+        self.__BD = 'hh.sqlite'
+        self.with_salary = with_salary
 
-    curr_time = time.time()
-    # удаляем логи ошибок при первом запуске, если они были
-    if os.path.exists(ERROR_LOG):
-        os.remove(ERROR_LOG)
+    @property
+    def name(self):
+        return self.__name
 
-    # Т.к глубина api запроса на HH.ru ограничена 2000 выкансий, было принято решение увеличить кол-во выдачи за счет
-    # введения доп. фильтра - указания региона
-    # формирование списка регионов
-    area_list_response = requests.get(f'{WEB_API}{AREAS}').json()
-    area_list = [(area['id'], area['name']) for area in area_list_response[0]['areas']]
-    with open('static/docs/areas.txt', 'w', encoding='utf-8') as f:
-        for area in area_list:
-            f.write(str(area) + '\n')
+    @property
+    def region(self):
+        return self.__region
 
-    for count, area in enumerate([int(id) for ar in area_list for id in ar if id.isdigit()]):
+    def get_params(self, area, page=None, per_page=100):
+        """Функция получения параметров парсинга"""
+        params = {
+            'text': f'{self.name}',
+            'only_with_salary': self.with_salary,
+            'area': f'{area}',
+            'page': page,
+            'per_page': per_page
+        }
+        return params
 
-        params = set_search_options(search_text=search_request,
-                                    only_with_salary=with_salary,
-                                    region=area)
+    def __check_er_logs(self):
+        if os.path.exists(self.__ERROR_LOG):
+            os.remove(self.__ERROR_LOG)
 
-        response = requests.get(f'{WEB_API}{VACANCIES}', params=params).json()
-        found = response['found']           # Кол-во найденных вакансий удовлетворяющий фильтру params
-        pages = response['pages']           # Кол-во всего страниц
-        per_page = response['per_page']     # Кол-во вакансий на одной странице
-        region = area_list[count][1]        # Текущий регион
-
-        print(f'\nРегион: {area_list[count]}')
-        print('Кол-во найденных вакансий удовлетворяющий фильтру params: ', found)
-        print('Кол-во всего страниц: ', pages)
-        print('Кол-во вакансий на одной странице: ', per_page if found > per_page else found)
-        print('-' * 60)
-
-        if found == 0:
-            continue
+    def __get_list_region(self):
+        con = sqlite3.connect(self.__BD)
+        cur = con.cursor()
+        if self.region != 'Россия':
+            cur.execute('SELECT region_id FROM region WHERE name=?', (self.region,))
+            return cur.fetchall()[0]  # (1848, )
         else:
-            area_count += 1
-            total_found += found
-            page_count += pages
+            cur.execute('SELECT region_id FROM region')
+            return [item[0] for item in cur.fetchall()]  # [1, 2, 1464, ...]
 
-        # парсинг
-        for page in range(pages):
-            params = set_search_options(search_text=search_request,
-                                        only_with_salary=with_salary,
-                                        region=area,
-                                        page=page)
+    def __get_name_region(self, region_id):
+        con = sqlite3.connect(self.__BD)
+        cur = con.cursor()
+        cur.execute('SELECT name FROM region WHERE region_id=?', (region_id,))
+        return cur.fetchall()[0][0]
 
-            response = requests.get(f'{WEB_API}{VACANCIES}', params=params).json()
+    def __write_error_log(self, error_count, region, page, profession_id, er, *args):
+        error_count += 1
+        with open(self.__ERROR_LOG, 'a', encoding='utf-8') as f:
+            print(f'\nerror: {region}, page: {page}, id: {profession_id}:\n args: {args}\n{er}')
+            print('-' * 60)
+            f.write('-' * 60 + '\n')
+            f.write(f'error: {region}, page: {page}, id: {profession_id}:\n args: {args}\n{er}\n')
 
-            # в этом блоке пробегаемся по всем вакансиям
-            for vacancy in tqdm(response['items'], f'Обработка вакансий на странице {page + 1}: '):
-                try:
-                    company = vacancy['employer']['name']
-                    company_id = vacancy['employer']['id']
-                    profession = vacancy['name']
-                    profession_id = vacancy['id']
-                    salary_from = vacancy['salary']['from']
-                    salary_to = vacancy['salary']['to']
+    def parse_vacancy(self):
+        """функция парсинга"""
+        ## СЧЕТЧИКИ ДЛЯ ЛОГИРОВАНИЯ
+        area_count = 0  ## кол-во регионов в которых была найдена вакансия
+        vacancies_count = 0  ## кол-ва обработанных вакансий
+        error_count = 0  ## прозошедших ошибок
+        total_found = 0  ## сколько всего вакансий
+        total_salary = 0  ## тотал зп для расчета средней
+        total_list_skills = []  ## список всех требований к данному типу вакансий
 
-                    # блок зп
-                    currency = vacancy['salary']['currency']
-                    if currency == 'RUR':
-                        koef = 1
-                    elif currency == 'USD':
-                        koef = 86
-                    elif currency == 'EUR':
-                        koef = 94
-                    if isinstance(salary_from, int) and isinstance(salary_to, int):
-                        salary = (salary_from + salary_to) / 2 * koef
-                    elif isinstance(salary_from, int) and not isinstance(salary_to, int):
-                        salary = salary_from * koef
-                    else:
-                        salary = salary_to * koef
+        vacancies_dict = {
+            'Регион': [],
+            'Компания': [],
+            'ID компании': [],
+            'Название профессиии': [],
+            'ID профессии': [],
+            'ЗП': [],
+            'Тип занятости': [],
+            'Ключевые слова': [],
+            'link': []
+        }
 
-                    schedule = vacancy['schedule']['id']
-                    snip_requirement = vacancy['snippet']['requirement']
-                    link = vacancy['alternate_url']
+        curr_time = time.time()  # засекается время начало парсинга
 
-                    id_response = requests.get(f'{WEB_API}{VACANCIES}/{profession_id}').json()
-                    key_skills = [skill['name'] for skill in id_response['key_skills']]
-                    description = id_response['description']
+        # блок проверки логов, удаляет если есть
+        self.__check_er_logs()
 
-                    # получили необходимую запись по одной вакансии,
-                    # теперь добавляем ее в исходный словарь
-                    vacancies_dict['Регион'].append(region)
-                    vacancies_dict['Компания'].append(company)
-                    vacancies_dict['ID компании'].append(int(company_id))
-                    vacancies_dict['Название профессиии'].append(profession)
-                    vacancies_dict['ID профессии'].append(int(profession_id))
-                    vacancies_dict['ЗП'].append(salary)
-                    vacancies_dict['Тип занятости'].append(schedule)
-                    vacancies_dict['Краткое описание требований'].append(snip_requirement)
-                    vacancies_dict['Ключевые слова'].append(key_skills)
+        regions = self.__get_list_region()
+        con = sqlite3.connect(self.__BD)
+        cur = con.cursor()
+        for area_id in regions:
 
-                    # total_list_skills
-                    for skill in key_skills:
-                        total_list_skills.append(skill)
+            response = requests.get(f'{self.__WEB_API}{self.__VACANCIES}', params=self.get_params(area_id)).json()
+            found = response['found']  # Кол-во найденных вакансий удовлетворяющий фильтру params
+            pages = response['pages']  # Кол-во всего страниц
+            region = self.__get_name_region(area_id)  # Текущий регион
 
-                    vacancies_dict['Полное описание'].append(description)
-                    vacancies_dict['link'].append(link)
-                    total_salary += salary
-                except Exception as er:
-                    error_count += 1
-                    with open(ERROR_LOG, 'a', encoding='utf-8') as f:
-                        print(f'\nОшибка: {area_list[count]}, page - {page} на вакансии № \n{vacancy}:\n {er}')
-                        print('-' * 60)
-                        f.write('-' * 60 + '\n')
-                        f.write(f'Ошибка: {area_list[count]}, page - {page} на вакансии № \n{vacancy}:\n {er}\n')
-                    continue
-                vacancies_count += 1
+            print(f'\nРегион: {region}')
+            print('Кол-во найденных вакансий удовлетворяющий фильтру params: ', found)
+            print('Кол-во всего страниц: ', pages)
+            print('-' * 60)
 
-    # сохр в dataframe
-    df = pd.DataFrame(vacancies_dict)
-    filename = os.path.join('static', 'docs', f'{search_request}.xlsx')
-    df.to_excel(filename, sheet_name=f'{search_request}')
+            if found == 0 and len(regions) > 1:
+                continue
+            elif found == 0 and len(regions) == 1:
+                return
+            else:
+                # логирование
+                area_count += 1
+                total_found += found
 
-    # получение словаря частотности требований к данной вакансии, отсортированный по убыванию
-    true_total_list_skills = OrderedDict()
-    len_total_list_skills = len(total_list_skills)  # запоминаем длину словаря
-    total_list_skills_dict = dict(Counter(total_list_skills).most_common(30))  # отбираем первые 30
-    # вычисляется процент упоминаний в целом
-    for i in total_list_skills_dict:
-        total_list_skills_dict[i] = round(total_list_skills_dict[i] / len_total_list_skills * 100, 2)
+            for page in range(pages):
+                response = requests.get(f'{self.__WEB_API}{self.__VACANCIES}',
+                                        params=self.get_params(area_id, page=page)).json()
 
-    # сортировка словаря по убыванию и формирование нового словаря OrderDict. Он запоминает вхождения
-    sorter_key = sorted(total_list_skills_dict, key=total_list_skills_dict.get, reverse=True)
-    true_total_list_skills = {w: total_list_skills_dict[w] for w in sorter_key}
+                for vacancy in tqdm(response['items'], f'Обработка вакансий на странице {page + 1}: '):
+                    try:
+                        company = vacancy['employer']['name']
+                        company_id = vacancy['employer']['id']
+                        profession = vacancy['name']
+                        profession_id = vacancy['id']
+                        salary_from = vacancy['salary']['from']
+                        salary_to = vacancy['salary']['to']
 
-    # логирование процесса в файл log.txt
-    with open(f'static/docs/{search_request}-log.txt', 'w', encoding='utf-8') as f:
-        f.write(f'Кол-во регионов в которых была найдена вакансия: {area_count}\n')
-        f.write(f'Кол-во обработанных страниц: {page_count}\n')
-        f.write(f'Кол-во обработанных вакансий: {vacancies_count} из {total_found}\n')
-        f.write(f'Средняя заработная плата: {round(total_salary / vacancies_count, 2)} рублей\n')
-        f.write('-' * 60 + '\n')
-        f.write(f'Все требования к данному типу вакансий:\n {", ".join(total_list_skills)}\n')
-        f.write(f'\n\nСловарь частотности требований к данной вакансии, отсортированный по убыванию:\n')
-        for skill in true_total_list_skills.items():
-            f.write(str(skill))
-        f.write('\n')
-        f.write('-' * 60 + '\n')
-        f.write(f'Кол-во возникших ошибок: {error_count}\n')
+                        # блок зп
+                        currency = vacancy['salary']['currency']
+                        if currency == 'RUR':
+                            koef = 1
+                        elif currency == 'USD':
+                            koef = 86
+                        elif currency == 'EUR':
+                            koef = 94
+                        if isinstance(salary_from, int) and isinstance(salary_to, int):
+                            salary = (salary_from + salary_to) / 2 * koef
+                        elif isinstance(salary_from, int) and not isinstance(salary_to, int):
+                            salary = salary_from * koef
+                        else:
+                            salary = salary_to * koef
 
-    print('=' * 60)
-    print(
-        f'Общее время выполнения парсинга вакансии {search_request}: {round(((time.time() - curr_time) / 60), 2)} минут')
-    print(f'Файл логов "log.txt" {"создан" if os.path.exists("static/docs/log.txt") else "не создан"}')
-    print(f'Файл логов ошибок {ERROR_LOG} {"создан" if os.path.exists(ERROR_LOG) else "не создан"}')
-    print(
-        f'Таблица вакансий {search_request}.xlsx {"создана" if os.path.exists(f"static/docs/{search_request}.xlsx") else "не создана"}')
+                        schedule = vacancy['schedule']['id']
+                        link = vacancy['alternate_url']
 
-    return filename
+                        id_response = requests.get(f'{self.__WEB_API}{self.__VACANCIES}/{profession_id}').json()
+                        key_skills = [skill['name'] for skill in id_response['key_skills']]
+
+                        # получили необходимую запись по одной вакансии,
+                        # теперь добавляем ее в DB
+
+                        for skill in key_skills:
+                            total_list_skills.append(skill)
+                            try:
+                                cur.execute('INSERT INTO key_skills (name) VALUES (?)', (skill,))
+                            except Exception as er:
+                                self.__write_error_log(error_count, region, page, profession_id, er, skill)
+
+                        cur.execute("""INSERT INTO vacancy (id_vacancy, name, link, user_request, 
+                                    region, salary, schedule, companyID) 
+                                    VALUES (?,?,?,?,?,?,?,?)""",
+                                    (int(profession_id), profession, link, self.name, self.region,
+                                     salary, schedule, company_id))
+                        cur.execute('INSERT INTO company VALUES (?,?)', (company_id, company))
+
+                        for skill in key_skills:
+                            cur.execute('SELECT id FROM key_skills WHERE name=?', (skill,))
+                            id_skill = cur.fetchall()[0][0]
+                            cur.execute('INSERT INTO vacancyID_keyskills (vacancy_id, key_skills) VALUES (?, ?)',
+                                        (int(profession_id), id_skill))
+                        total_salary += salary
+                    except Exception as er:
+                        self.__write_error_log(error_count, region, page, profession_id, er)
+                        continue
+                    vacancies_count += 1
+        con.commit()
+
+        # сохр в dataframe
+        # df = pd.DataFrame(vacancies_dict)
+        # filename = os.path.join('static', 'docs', f'{search_request}.xlsx')
+        # df.to_excel(filename, sheet_name=f'{search_request}')
+
+        # получение словаря частотности требований к данной вакансии, отсортированный по убыванию
+        # true_total_list_skills = OrderedDict()
+        len_total_list_skills = len(total_list_skills)  # запоминаем длину словаря
+        total_list_skills_dict = dict(Counter(total_list_skills).most_common(30))  # отбираем первые 30
+        # вычисляется процент упоминаний исходя из частоты упоминаний
+        for i in total_list_skills_dict:
+            total_list_skills_dict[i] = round(total_list_skills_dict[i] / len_total_list_skills * 100, 2)
+
+        # сортировка словаря по убыванию и формирование нового словаря OrderDict. Он запоминает вхождения
+        sorter_key = sorted(total_list_skills_dict, key=total_list_skills_dict.get, reverse=True)
+        true_total_list_skills = {w: total_list_skills_dict[w] for w in sorter_key}
+
+        # логирование процесса в файл log.txt
+        with open(f'static/logs/{self.name}-log.txt', 'w', encoding='utf-8') as f:
+            f.write(f'Кол-во регионов в которых была найдена вакансия: {area_count}\n')
+            f.write(f'Кол-во обработанных вакансий: {vacancies_count} из {total_found}\n')
+            # f.write(f'Средняя заработная плата: {round(total_salary / vacancies_count, 2)} рублей\n')
+            f.write('-' * 60 + '\n')
+            f.write(f'Все требования к данному типу вакансий:\n {", ".join(total_list_skills)}\n')
+            f.write(f'\n\nСловарь частотности требований к данной вакансии, отсортированный по убыванию:\n')
+            for skill in true_total_list_skills.items():
+                f.write(str(skill))
+            f.write('\n')
+            f.write('-' * 60 + '\n')
+            f.write(f'Кол-во возникших ошибок: {error_count}\n')
+
+        print('=' * 60)
+        print(
+            f'Общее время выполнения парсинга вакансии {self.name}: {round(((time.time() - curr_time) / 60), 2)} минут')
+        print(f'Файл логов "log.txt" {"создан" if os.path.exists("static/logs/log.txt") else "не создан"}')
+        print(f'Файл логов ошибок {self.__ERROR_LOG} {"создан" if os.path.exists(self.__ERROR_LOG) else "не создан"}')
+        # print(f'Таблица вакансий {self.name}.xlsx {"создана" if os.path.exists(f"static/docs/{self.name}.xlsx")
+        # else "не создана"}')
 
 
 if __name__ == '__main__':
-    search_request = input('Поисковый запрос: ')
+    # search_request = input('Поисковый запрос: ')
     # search_request = 'python developer'
-    parse_vacancy(search_request=search_request, with_salary=True)
+    # parse_vacancy(search_request=search_request, with_salary=True)
+    # get_regions_from_hh()
+    test_request = Vacancy('Python django', "Алтайский край")
+    print(test_request.name)
+    print(test_request.region)
+    test_request.parse_vacancy()

@@ -5,11 +5,30 @@
 {% block content %}
         <h1 class="mx-auto text-uppercase">parser.HH</h1>
             <form class="form-floating" method="post" action=#results>
-              <input type="text" class="form-control" id="textInputValue" placeholder="python developer" name="query_string">
-              <label for="textInputValue" style="color:gray">Введите интересующую Вас вакансию</label>
+<!--              <input type="text" class="form-control" id="textInputValue" placeholder="python developer" name="query_string">-->
+<!--              <label for="textInputValue" style="color:gray">Введите интересующую Вас вакансию</label>-->
+                <div class="row g-2">
+                  <div class="col-md">
+                    <div class="form-floating">
+                      <input type="text" class="form-control" id="floatingInputGrid" placeholder="python developer" name="query_string">
+                      <label for="floatingInputGrid" style="color:gray">Введите вакансию</label>
+                    </div>
+                  </div>
+                  <div class="col-md">
+                    <div class="form-floating">
+                      <select class="form-select" id="floatingSelectGrid" aria-label="Floating label select example" name="select_region">
+                        <option value="Россия" selected>Россия</option>
+                            {% for region in regions %}
+                                <option value="{{region}}">{{region}}</option>
+                            {% endfor %}
+                      </select>
+                      <label for="floatingSelectGrid" style="color:gray">Выберите регион</label>
+                    </div>
+                  </div>
+                </div>
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckChecked" name="with_salary" checked>
-                  <label class="my_form-check-label" for="flexSwitchCheckChecked">Указан доход</label>
+                  <label for="flexSwitchCheckChecked">Указан доход</label>
                 </div>
                 <h2 class="text-white-50 mx-auto mt-2 mb-5">узнай БЕСПЛАТНО и БЫСТРО требования к ИНТЕРЕСУЮЩЕЙ тебя ПРОФЕССИИ</h2>
                 <div class="text-center"><button class="btn btn-lg btn-secondary fw-bold border-white bg-white" type="submit">Парсинг вакансии</button></div>
