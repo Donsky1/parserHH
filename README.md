@@ -2,13 +2,13 @@
 
 <h2>Парсинг вакансий с сайта HH.ru по заданному поисковому запросу.</h2>
 
-![Screenshot_3](https://user-images.githubusercontent.com/63307876/161084718-5172f7a0-91c3-40a4-b118-9430ce57757f.png)
+<p align="center"><img src='https://user-images.githubusercontent.com/63307876/161084718-5172f7a0-91c3-40a4-b118-9430ce57757f.png'></p>
 
 Процесс выполнеия будет отображаться в терминале пользователя в следующем ввиде (в том числе и возникающие в процеесе выполнения ошибки):
 
-![Screenshot_2](https://user-images.githubusercontent.com/63307876/161084905-c2b96e35-5b3f-464e-8b2e-490fbe345bd8.png)
+<p align="center"><img src='https://user-images.githubusercontent.com/63307876/161084905-c2b96e35-5b3f-464e-8b2e-490fbe345bd8.png'></p>
 
-![Screenshot_1](https://user-images.githubusercontent.com/63307876/161084917-0b74e903-cf27-4d80-9c0a-7eab3098e597.png)
+<p align="center"><img src='https://user-images.githubusercontent.com/63307876/161084917-0b74e903-cf27-4d80-9c0a-7eab3098e597.png'></p>
 
 По итогу система вытянет наиболее актуальные навыки для какой либо вакансии и сохранит в файл формата xlsx и txt.</br>
 В конце выполнения программы формируется логирование ошибок и результата.
@@ -29,14 +29,14 @@
 <hr>
 <b>Добавлен сайт(beta) базирующийся на фреймворке Flask </b><br>
 
-!![image](https://user-images.githubusercontent.com/63307876/162795613-eac66a7b-5088-48a2-a2e9-2a1c7ce7aca7.png)
+<p align="center"><img src='https://user-images.githubusercontent.com/63307876/162795613-eac66a7b-5088-48a2-a2e9-2a1c7ce7aca7.png'></p>
   
 Алгоритм работы на сайте:
   <li>Вводите вакансию и выбираете из списка регион</li>
   <li>Нажимаете Парсинг вакансии</li>
   <li>Ожидаете, после того как процесс будет завершен страница перейдет к вкладке Результаты</li><br>
   
-  ![image](https://user-images.githubusercontent.com/63307876/162795674-31e0a39f-ffa3-4766-9718-0fec844732b9.png)
+ <p align="center"><img src='https://user-images.githubusercontent.com/63307876/162795674-31e0a39f-ffa3-4766-9718-0fec844732b9.png'></p>
 
 <div>
 <b>Результат парсинга отображаемый на сайте носит исключительно информационный характер. Основная работа с полученной информацией выполняется с использованием файла xlsx
