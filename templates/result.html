@@ -5,6 +5,15 @@
 {% block top %}mb-5{% endblock top %}
 {% block content %}
     {% if flag == 1 %}
+    <div class="row gx-0" style="align: top">
+        <div class="alert alert-success" role="alert">
+            {% for i in range(5) %}
+                <p style="text-align: left">{{ itog[i] }} </p>
+            {% endfor %}
+          <hr>
+<!--          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>-->
+        </div>
+    </div>
     <table class="table table-dark table-striped">
       <thead>
         <tr>
@@ -20,11 +29,11 @@
       <tbody>
         <tr>
           <th scope="row">{{item+1}}</th>
-          <td>{{data[item][4]}}</td>
-          <td>{{data[item][5]}}</td>
+          <td>{{data[item][0]}}</td>
           <td>{{data[item][1]}}</td>
-          <td>{{data[item][6]}}</td>
-          <td><a href="{{data[item][2]}}">link</a></td>
+          <td>{{data[item][2]}}</td>
+          <td>{{data[item][3]}}</td>
+          <td><a href="{{data[item][4]}}">link</a></td>
         </tr>
         {% endfor %}
         <tr>
@@ -34,14 +43,6 @@
         </tr>
       </tbody>
     </table>
-<!--    <div class="row gx-0 justify-content-center" style="align: top">-->
-<!--        <div class="alert alert-success" role="alert">-->
-<!--          <h4 class="alert-heading">Отличная работа! Нам удалось спарсить данные</h4>-->
-<!--          <p>Ваш запрос на поиск вакансии был успешно обработан. <br>-->
-<!--              Файл {{vacancy}}.xlsx сформирован ниже. Вы его можете сейчас скачать.</p>-->
-<!--          <hr>-->
-<!--          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>-->
-<!--        </div>-->
     {% elif flag == 0 %}
         <div class="alert alert-warning" role="alert">
               <h4 class="alert-heading">В данном блоке в дальнейшем будет результат выполнения парсинга</h4>

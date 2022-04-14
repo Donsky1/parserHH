@@ -4,18 +4,89 @@ from tqdm import tqdm
 from collections import Counter
 import time
 import os
-import sqlite3
+from sqlalchemy import Column, Integer, String, create_engine, ForeignKey, Table
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
 
-# функция формирования БД регионы
+engine = create_engine('sqlite:///hhORM.sqlite', echo=False)
+Base = declarative_base()
+
+
+class Vacancy_SkillT(Base):
+    __tablename__ = 'vacancy_skill'
+    id = Column(Integer, primary_key=True)
+    vacancy_id = Column(Integer, ForeignKey('vacancy.id'))
+    key_skill_id = Column(Integer, ForeignKey('key_skill.id'))
+
+    def __init__(self, vacancy_id, key_skill_id):
+        self.vacancy_id = vacancy_id
+        self.key_skill_id = key_skill_id
+
+
+class CompanyT(Base):
+    __tablename__ = 'company'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True)
+
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+
+class SkillT(Base):
+    __tablename__ = 'key_skill'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True)
+
+    def __init__(self, name):
+        self.name = name
+
+
+class RegionT(Base):
+    __tablename__ = 'region'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, unique=True)
+
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+
+
+class VacancyT(Base):
+    __tablename__ = 'vacancy'
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    link = Column(String, nullable=False)
+    user_request = Column(String, nullable=False)
+    region = Column(String, nullable=False)
+    company_id = Column(Integer, ForeignKey('company.id'))
+    salary = Column(Integer)
+    schedule = Column(String)
+
+    def __init__(self, id, name, link, user_request, region, company_id, salary, schedule):
+        self.id = id
+        self.name = name
+        self.link = link
+        self.user_request = user_request
+        self.region = region
+        self.company_id = company_id
+        self.salary = salary
+        self.schedule = schedule
+
+
+Base.metadata.create_all(engine)
+Session = sessionmaker(bind=engine)
+session = Session()
+
+
+# функция формирования таблицы регионы в БД
 def get_regions_from_hh():
     print(f'request: get  region from HH.ru')
-    con = sqlite3.connect('hh.sqlite')  # подключение к БД
-    cur = con.cursor()
     area_list_response = requests.get("https://api.hh.ru/areas").json()
     for area in area_list_response[0]['areas']:
-        cur.execute('INSERT INTO region (region_id, name) VALUES (?, ?)', (area['id'], area['name']))
-    con.commit()
+        session.add(RegionT(area['id'], area['name']))
+    session.commit()
 
 
 class Vacancy:
@@ -23,11 +94,11 @@ class Vacancy:
     def __init__(self, name, region, with_salary=True):
         self.__name = name
         self.__region = region
-        self.__ERROR_LOG = os.path.join('static', 'logs', f'{self.__name}Error.txt')
+        self.__ERROR_LOG = os.path.join('static', 'logs', f'{self.__name}({self.__region})Error.txt')
         self.__WEB_API = "https://api.hh.ru/"
         self.__AREAS = 'areas'
         self.__VACANCIES = 'vacancies'
-        self.__BD = 'hh.sqlite'
+        self.__BD = 'hhORM.sqlite'
         self.with_salary = with_salary
 
     @property
@@ -53,21 +124,15 @@ class Vacancy:
         if os.path.exists(self.__ERROR_LOG):
             os.remove(self.__ERROR_LOG)
 
-    def __get_list_region(self):
-        con = sqlite3.connect(self.__BD)
-        cur = con.cursor()
+    def _get_list_region(self):
+        result = []
         if self.region != 'Россия':
-            cur.execute('SELECT region_id FROM region WHERE name=?', (self.region,))
-            return cur.fetchall()[0]  # (1848, )
+            for region in session.query(RegionT).filter(RegionT.name == self.region):
+                result.append(region.id)  # [1848]
         else:
-            cur.execute('SELECT region_id FROM region')
-            return [item[0] for item in cur.fetchall()]  # [1, 2, 1464, ...]
-
-    def __get_name_region(self, region_id):
-        con = sqlite3.connect(self.__BD)
-        cur = con.cursor()
-        cur.execute('SELECT name FROM region WHERE region_id=?', (region_id,))
-        return cur.fetchall()[0][0]
+            for region in session.query(RegionT):
+                result.append(region.id)  # [1, 2, 145, 1008, 1020, 1041, 1051, 1061, 1077, 1090, 1 ... ]
+        return result
 
     def __write_error_log(self, error_count, region, page, profession_id, er, *args):
         error_count += 1
@@ -76,6 +141,33 @@ class Vacancy:
             print('-' * 60)
             f.write('-' * 60 + '\n')
             f.write(f'error: {region}, page: {page}, id: {profession_id}:\n args: {args}\n{er}\n')
+        return error_count
+
+    @staticmethod
+    def __insert_to_base_company(company_id, company):
+        if session.query(CompanyT).filter(CompanyT.name == company).count() != 1:
+            session.add(CompanyT(company_id, company))
+        session.commit()
+
+    @staticmethod
+    def __insert_to_base_skills(key_skills):
+        for skill in key_skills:
+            if session.query(SkillT).filter(SkillT.name == skill).count() != 1:
+                session.add(SkillT(skill))
+            session.commit()
+
+    def __insert_to_base_vacancy(self, profession_id, profession, link, region, company_id, salary, schedule):
+        if session.query(VacancyT).filter(VacancyT.id == profession_id).count() != 1:
+            session.add(VacancyT(id=int(profession_id), name=profession, link=link, user_request=self.name,
+                                 region=region, company_id=company_id, salary=salary, schedule=schedule))
+        session.commit()
+
+    @staticmethod
+    def __insert_company_skill_association(profession_id, key_skills):
+        for skill in key_skills:
+            id_skill = session.query(SkillT).filter(SkillT.name == skill).all()[0].id
+            session.add(Vacancy_SkillT(profession_id, id_skill))
+        session.commit()
 
     def parse_vacancy(self):
         """функция парсинга"""
@@ -104,19 +196,17 @@ class Vacancy:
         # блок проверки логов, удаляет если есть
         self.__check_er_logs()
 
-        regions = self.__get_list_region()
-        con = sqlite3.connect(self.__BD)
-        cur = con.cursor()
+        regions = self._get_list_region()
         for area_id in regions:
 
             response = requests.get(f'{self.__WEB_API}{self.__VACANCIES}', params=self.get_params(area_id)).json()
             found = response['found']  # Кол-во найденных вакансий удовлетворяющий фильтру params
             pages = response['pages']  # Кол-во всего страниц
-            region = self.__get_name_region(area_id)  # Текущий регион
+            region = session.query(RegionT).filter(RegionT.id == area_id).all()[0].name  # Текущий регион
 
-            print(f'\nРегион: {region}')
+            print(f'\nРегион: {region}, ID: {area_id}')
             print('Кол-во найденных вакансий удовлетворяющий фильтру params: ', found)
-            print('Кол-во всего страниц: ', pages)
+            print('Кол-во всего страниц: ', pages if found > 0 else 0)
             print('-' * 60)
 
             if found == 0 and len(regions) > 1:
@@ -162,34 +252,21 @@ class Vacancy:
                         id_response = requests.get(f'{self.__WEB_API}{self.__VACANCIES}/{profession_id}').json()
                         key_skills = [skill['name'] for skill in id_response['key_skills']]
 
-                        # получили необходимую запись по одной вакансии,
-                        # теперь добавляем ее в DB
-
                         for skill in key_skills:
                             total_list_skills.append(skill)
-                            try:
-                                cur.execute('INSERT INTO key_skills (name) VALUES (?)', (skill,))
-                            except Exception as er:
-                                self.__write_error_log(error_count, region, page, profession_id, er, skill)
 
-                        cur.execute("""INSERT INTO vacancy (id_vacancy, name, link, user_request, 
-                                    region, salary, schedule, companyID) 
-                                    VALUES (?,?,?,?,?,?,?,?)""",
-                                    (int(profession_id), profession, link, self.name, self.region,
-                                     salary, schedule, company_id))
-                        cur.execute('INSERT INTO company VALUES (?,?)', (company_id, company))
-
-                        for skill in key_skills:
-                            cur.execute('SELECT id FROM key_skills WHERE name=?', (skill,))
-                            id_skill = cur.fetchall()[0][0]
-                            cur.execute('INSERT INTO vacancyID_keyskills (vacancy_id, key_skills) VALUES (?, ?)',
-                                        (int(profession_id), id_skill))
+                        # добавление данных в бд
+                        self.__insert_to_base_skills(key_skills)
+                        self.__insert_to_base_company(company_id, company)
+                        self.__insert_to_base_vacancy(profession_id, profession, link, region,
+                                                      company_id, salary, schedule)
+                        self.__insert_company_skill_association(profession_id, key_skills)
                         total_salary += salary
                     except Exception as er:
-                        self.__write_error_log(error_count, region, page, profession_id, er)
+                        error_count += self.__write_error_log(error_count, region, page, profession_id, er)
                         continue
                     vacancies_count += 1
-        con.commit()
+        session.commit()
 
         # сохр в dataframe
         # df = pd.DataFrame(vacancies_dict)
@@ -209,10 +286,10 @@ class Vacancy:
         true_total_list_skills = {w: total_list_skills_dict[w] for w in sorter_key}
 
         # логирование процесса в файл log.txt
-        with open(f'static/logs/{self.name}-log.txt', 'w', encoding='utf-8') as f:
+        with open(f'static/logs/{self.name}({self.region})-log.txt', 'w', encoding='utf-8') as f:
             f.write(f'Кол-во регионов в которых была найдена вакансия: {area_count}\n')
             f.write(f'Кол-во обработанных вакансий: {vacancies_count} из {total_found}\n')
-            # f.write(f'Средняя заработная плата: {round(total_salary / vacancies_count, 2)} рублей\n')
+            f.write(f'Средняя заработная плата: {round(total_salary / vacancies_count, 2)} рублей\n')
             f.write('-' * 60 + '\n')
             f.write(f'Все требования к данному типу вакансий:\n {", ".join(total_list_skills)}\n')
             f.write(f'\n\nСловарь частотности требований к данной вакансии, отсортированный по убыванию:\n')
@@ -225,18 +302,15 @@ class Vacancy:
         print('=' * 60)
         print(
             f'Общее время выполнения парсинга вакансии {self.name}: {round(((time.time() - curr_time) / 60), 2)} минут')
-        print(f'Файл логов "log.txt" {"создан" if os.path.exists("static/logs/log.txt") else "не создан"}')
-        print(f'Файл логов ошибок {self.__ERROR_LOG} {"создан" if os.path.exists(self.__ERROR_LOG) else "не создан"}')
-        # print(f'Таблица вакансий {self.name}.xlsx {"создана" if os.path.exists(f"static/docs/{self.name}.xlsx")
-        # else "не создана"}')
+        print(f'Файл логов "{self.name}({self.region})-log.txt" '
+              f'{"создан" if os.path.exists(f"static/logs/{self.name}({self.region})-log.txt") else "не создан"}')
+        print(f'Файл логов ошибок {self.__name}({self.region})Error.txt '
+              f'{"создан" if os.path.exists(self.__ERROR_LOG) else "не создан"}')
 
 
 if __name__ == '__main__':
-    # search_request = input('Поисковый запрос: ')
-    # search_request = 'python developer'
-    # parse_vacancy(search_request=search_request, with_salary=True)
     # get_regions_from_hh()
-    test_request = Vacancy('Python django', "Алтайский край")
+    test_request = Vacancy('Python junior', "Новосибирская область")
     print(test_request.name)
     print(test_request.region)
     test_request.parse_vacancy()
