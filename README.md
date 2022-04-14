@@ -13,8 +13,8 @@
   <li>Вводите вакансию и выбираете из списка регион</li>
   <li>Нажимаете Парсинг вакансии</li>
   <li>Ожидаете, после того как процесс будет завершен страница перейдет к вкладке Результаты</li><br>
-  
- <p align="center"><img src='https://user-images.githubusercontent.com/63307876/162795674-31e0a39f-ffa3-4766-9718-0fec844732b9.png'></p>
+
+ <p align="center"><img src='https://user-images.githubusercontent.com/63307876/163468646-d3d6c52a-6b5d-4c0f-99d7-4924afa7bf89.png'></p>
 
 <div>
 <b>Результат парсинга отображаемый на сайте носит исключительно информационный характер. Основная работа с полученной информацией выполняется с использованием файла xlsx</b>
@@ -29,6 +29,8 @@
 <p align="center"><img src='https://user-images.githubusercontent.com/63307876/161084905-c2b96e35-5b3f-464e-8b2e-490fbe345bd8.png'></p>
 
 <p align="center"><img src='https://user-images.githubusercontent.com/63307876/161084917-0b74e903-cf27-4d80-9c0a-7eab3098e597.png'></p>
+
+<p align="center"><img src='https://user-images.githubusercontent.com/63307876/163468856-2252a6aa-f570-4505-8b1d-7f0864fd4252.png'></p>
 
 По итогу система вытянет наиболее актуальные навыки для какой либо вакансии и сохранит в файл формата xlsx и txt.</br>
 В конце выполнения программы формируется логирование ошибок и результата.
