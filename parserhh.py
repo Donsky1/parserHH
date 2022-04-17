@@ -4,10 +4,9 @@ from tqdm import tqdm
 from collections import Counter
 import time
 import os
-from sqlalchemy import Column, Integer, String, create_engine, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, create_engine, ForeignKey
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-
 
 engine = create_engine('sqlite:///hhORM.sqlite', echo=False)
 Base = declarative_base()
@@ -77,11 +76,11 @@ class VacancyT(Base):
 
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
-session = Session()
 
 
 # функция формирования таблицы регионы в БД
 def get_regions_from_hh():
+    session = Session()
     print(f'request: get  region from HH.ru')
     area_list_response = requests.get("https://api.hh.ru/areas").json()
     for area in area_list_response[0]['areas']:
@@ -125,6 +124,7 @@ class Vacancy:
             os.remove(self.__ERROR_LOG)
 
     def _get_list_region(self):
+        session = Session()
         result = []
         if self.region != 'Россия':
             for region in session.query(RegionT).filter(RegionT.name == self.region):
@@ -145,18 +145,21 @@ class Vacancy:
 
     @staticmethod
     def __insert_to_base_company(company_id, company):
+        session = Session()
         if session.query(CompanyT).filter(CompanyT.name == company).count() != 1:
             session.add(CompanyT(company_id, company))
         session.commit()
 
     @staticmethod
     def __insert_to_base_skills(key_skills):
+        session = Session()
         for skill in key_skills:
             if session.query(SkillT).filter(SkillT.name == skill).count() != 1:
                 session.add(SkillT(skill))
             session.commit()
 
     def __insert_to_base_vacancy(self, profession_id, profession, link, region, company_id, salary, schedule):
+        session = Session()
         if session.query(VacancyT).filter(VacancyT.id == profession_id).count() != 1:
             session.add(VacancyT(id=int(profession_id), name=profession, link=link, user_request=self.name,
                                  region=region, company_id=company_id, salary=salary, schedule=schedule))
@@ -164,10 +167,44 @@ class Vacancy:
 
     @staticmethod
     def __insert_company_skill_association(profession_id, key_skills):
+        session = Session()
         for skill in key_skills:
             id_skill = session.query(SkillT).filter(SkillT.name == skill).all()[0].id
             session.add(Vacancy_SkillT(profession_id, id_skill))
         session.commit()
+
+    def db_to_xls(self):
+        session = Session()
+        vacancies_dict = {
+            'Регион': [],
+            'Компания': [],
+            'Название профессиии': [],
+            'ID профессии': [],
+            'ЗП': [],
+            'Тип занятости': [],
+            'Ключевые слова': [],
+            'link': []
+        }
+        for item in session.query(VacancyT).filter(VacancyT.user_request == self.name).filter(VacancyT.region == self.region):
+            skill_list = []
+            id_vac = item.id
+            company_name = session.query(CompanyT).filter_by(id=item.company_id).first().name
+            for skill in session.query(Vacancy_SkillT).filter(Vacancy_SkillT.vacancy_id == id_vac).all():
+                skill_name = session.query(SkillT).filter_by(id=skill.key_skill_id).first().name
+                skill_list.append(skill_name)
+
+            vacancies_dict['Название профессиии'].append(item.name)
+            vacancies_dict['ID профессии'].append(id_vac)
+            vacancies_dict['link'].append(item.link)
+            vacancies_dict['Регион'].append(item.region)
+            vacancies_dict['ЗП'].append(item.salary)
+            vacancies_dict['Тип занятости'].append(item.schedule)
+            vacancies_dict['Ключевые слова'].append(skill_list)
+            vacancies_dict['Компания'].append(company_name)
+
+        df = pd.DataFrame(vacancies_dict)
+        filename = os.path.join('static', 'docs', f'{self.name}.xlsx')
+        df.to_excel(filename, sheet_name=f'{self.name}')
 
     def parse_vacancy(self):
         """функция парсинга"""
@@ -179,19 +216,8 @@ class Vacancy:
         total_salary = 0  ## тотал зп для расчета средней
         total_list_skills = []  ## список всех требований к данному типу вакансий
 
-        vacancies_dict = {
-            'Регион': [],
-            'Компания': [],
-            'ID компании': [],
-            'Название профессиии': [],
-            'ID профессии': [],
-            'ЗП': [],
-            'Тип занятости': [],
-            'Ключевые слова': [],
-            'link': []
-        }
-
         curr_time = time.time()  # засекается время начало парсинга
+        session = Session()
 
         # блок проверки логов, удаляет если есть
         self.__check_er_logs()
@@ -212,7 +238,7 @@ class Vacancy:
             if found == 0 and len(regions) > 1:
                 continue
             elif found == 0 and len(regions) == 1:
-                return
+                return 0
             else:
                 # логирование
                 area_count += 1
@@ -268,13 +294,7 @@ class Vacancy:
                     vacancies_count += 1
         session.commit()
 
-        # сохр в dataframe
-        # df = pd.DataFrame(vacancies_dict)
-        # filename = os.path.join('static', 'docs', f'{search_request}.xlsx')
-        # df.to_excel(filename, sheet_name=f'{search_request}')
-
         # получение словаря частотности требований к данной вакансии, отсортированный по убыванию
-        # true_total_list_skills = OrderedDict()
         len_total_list_skills = len(total_list_skills)  # запоминаем длину словаря
         total_list_skills_dict = dict(Counter(total_list_skills).most_common(30))  # отбираем первые 30
         # вычисляется процент упоминаний исходя из частоты упоминаний
@@ -310,7 +330,7 @@ class Vacancy:
 
 if __name__ == '__main__':
     # get_regions_from_hh()
-    test_request = Vacancy('Python junior', "Новосибирская область")
+    test_request = Vacancy('python developerdfvd', "Республика Карелия")
     print(test_request.name)
     print(test_request.region)
     test_request.parse_vacancy()

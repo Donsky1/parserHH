@@ -11,7 +11,9 @@
                 <p style="text-align: left">{{ itog[i] }} </p>
             {% endfor %}
           <hr>
-<!--          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>-->
+            {% if session['email'] %}
+          <p class="mb-0"><a href="/static/docs/{{vacancy}}.xlsx" class="alert-link">Ссылка на скачивание файла {{vacancy}}.xlsx</a></p>
+            {% endif %}
         </div>
     </div>
     <table class="table table-dark table-striped">
@@ -36,26 +38,36 @@
           <td><a href="{{data[item][4]}}">link</a></td>
         </tr>
         {% endfor %}
+        {% if not session['email'] %}
         <tr>
           <th scope="row">...</th>
-            <td colspan="4">вы являетесь незарегистрированным пользователем, поэтому вывод информации ограничен... <a href="/login/">Зарегистрироваться.</a></td>
+            <td colspan="4">вы являетесь незарегистрированным пользователем, поэтому вывод информации ограничен...  Ссылка на скачивание недоступна <a href="/register/">Зарегистрироваться.</a> или <a href="/login/">Войти.</a></td>
           <td> ... </td>
         </tr>
+        {% endif %}
       </tbody>
     </table>
     {% elif flag == 0 %}
         <div class="alert alert-warning" role="alert">
               <h4 class="alert-heading">В данном блоке в дальнейшем будет результат выполнения парсинга</h4>
-              <p>Процесс парсинга предельно прост. <br>
-                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион, расположенную на главной странице.</p>
+              <p>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион</p>
               <hr>
               <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
+            </div>
+    {% elif flag == 404 %}
+        <div class="alert alert-warning" role="alert">
+              <h4 class="alert-heading">К сожалению результатов нет.</h4>
+              <p>
+                  Причиной может быть либо неверный запрос, либо по данной вакансии в  данном регионе ничего не нашлось</p>
+              <hr>
+              <p class="mb-0"><a href="/form/" class="alert-link">Выполнить новый парсинг</a></p>
             </div>
     {% else %}
         <div class="alert alert-warning" role="alert">
               <h4 class="alert-heading">Ошибка запроса</h4>
               <p>Вы неверно указали запрос на главной странице.<br>
-                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион, расположенную на главной странице.</p>
+                  Вам необходимо ввести искомую вакансию в поле формы запроса и выбрать регион.</p>
               <hr>
               <p class="mb-0"><a href="/form/" class="alert-link">Выполнить парсинг</a></p>
             </div>
