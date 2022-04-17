@@ -35,7 +35,7 @@ def form_page():
     if request.method == 'GET':
         sess = Session()
         regions = [region.name for region in sess.query(RegionT).all()]
-        regions.sort()
+        regions.sort()  # сортировка регионов
         sess.close()
         return render_template('form.html', regions=regions)
     else:
