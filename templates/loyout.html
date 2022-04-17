@@ -124,11 +124,14 @@
                 <img src="https://github.com/mdo.png" alt="mdo" width="24" height="24" class="rounded-circle">
               </a>
               <ul class="dropdown-menu text-small shadow" aria-labelledby="dropdownUser3">
-                <li><a class="dropdown-item" href="/login/">Зарегистрироваться</a></li>
-<!--                <li><a class="dropdown-item" href="#">Settings</a></li>-->
-<!--                <li><a class="dropdown-item" href="#">Profile</a></li>-->
+                  {% if not session['email'] %}
+                    <li><a class="dropdown-item" href="/register/">Зарегистрироваться</a></li>
+                    <li><a class="dropdown-item" href="/login/">Войти</a></li>
+                  {% endif %}
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#">Sign out</a></li>
+                {% if session['email'] %}
+                    <li><a class="dropdown-item" href="/exit/">Выйти</a></li>
+                 {% endif %}
               </ul>
             </div>
           </div>
@@ -138,6 +141,11 @@
     </div>
     <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
       <header class="{% block top %}mb-auto{% endblock top %}">
+          {% if session['email'] %}
+          <div class="alert alert-ligh" role="alert">
+                    Добро пожаловать, пользователь {{ session['email'] }}! <a href="/exit/">Выход</a>
+            </div>
+          {% endif %}
         <div>
           <h3 class="float-md-start mb-0">parserHH</h3>
           <nav class="nav nav-masthead justify-content-center float-md-end">
